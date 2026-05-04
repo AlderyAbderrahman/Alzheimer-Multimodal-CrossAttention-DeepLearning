@@ -16,9 +16,13 @@ Or import and call directly in a notebook:
     from train import train
     train()
 """
-
-import os
 import sys
+import os
+from google.colab import drive
+drive.mount('/content/drive')
+sys.path.insert(0, '/content/drive/MyDrive/dataset/oasis13d')
+
+
 import time
 import torch
 import torch.nn as nn
@@ -26,10 +30,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-# ── Path setup ────────────────────────────────────────────────────────────────
-from google.colab import drive
-drive.mount('/content/drive')
-sys.path.insert(0, '/content/drive/MyDrive/dataset/oasis13d')
+
 
 # ── Project imports ───────────────────────────────────────────────────────────
 from src.preprocessing import (
@@ -49,7 +50,7 @@ CFG = {
     # ── Paths ──────────────────────────────────────────────────────────────
     'base_path'   : '/content/drive/MyDrive/dataset/oasis13d/data',
     'csv_path'    : '/content/drive/MyDrive/dataset/oasis13d/data/oasis_cross-sectional.csv',
-    'nii_dir'     : '/content/drive/MyDrive/dataset/oasis13d/data/oasis/OASIS',
+    'nii_dir'     : '/content/mri_cache',
     'ckpt_dir'    : '/content/drive/MyDrive/dataset/oasis13d/checkpoints',
 
     # ── Model ──────────────────────────────────────────────────────────────
@@ -77,6 +78,7 @@ CFG = {
 
     # ── Regularization ─────────────────────────────────────────────────────
     'weight_decay': 1e-4,
+    'skip_stage1': True,
 }
 
 
@@ -370,22 +372,27 @@ def train(cfg: dict = CFG):
     # Train: clinical encoder + fusion + classifier
     # MRI encoder: frozen (no gradients, no updates)
     # ─────────────────────────────────────────────────────────────────────────
-    print("\n── Stage 1: freeze MRI encoder ──")
-    model.freeze_mri_encoder()
+    # ─────────────────────────────────────────────────────────────────────────
+# STAGE 1 — optional (can be skipped)
+# ─────────────────────────────────────────────────────────────────────────
+    if not cfg.get('skip_stage1', False):
+     print("\n── Stage 1: freeze MRI encoder ──")
+     model.freeze_mri_encoder()
 
-    optimizer_s1 = torch.optim.AdamW(
+     optimizer_s1 = torch.optim.AdamW(
         filter(lambda p: p.requires_grad, model.parameters()),
         lr           = cfg['stage1_lr'],
         weight_decay = cfg['weight_decay'],
-    )
-    scheduler_s1 = torch.optim.lr_scheduler.ReduceLROnPlateau(
+     )
+
+     scheduler_s1 = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer_s1,
         mode     = 'min',
         factor   = 0.5,
         patience = 4,
-    )
+     )
 
-    best_s1 = train_stage(
+     best_s1 = train_stage(
         model, train_loader, val_loader,
         criterion, optimizer_s1, scheduler_s1,
         device,
@@ -393,7 +400,11 @@ def train(cfg: dict = CFG):
         patience = cfg['stage1_patience'],
         stage    = 1,
         cfg      = cfg,
-    )
+     )
+
+    else:
+     print("\n── Skipping Stage 1 — loading checkpoint ──")
+     best_s1 = 0.0
 
     # Load best stage 1 weights before starting stage 2
     best_s1_path = os.path.join(cfg['ckpt_dir'], 'best_stage1.pt')
