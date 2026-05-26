@@ -14,6 +14,8 @@ alzheimer-multimodal/
 │   ├── fusion.py               # Cross-attention fusion module
 │   ├── model.py                # Full model combining all streams
 │   └── utils.py                # metrics, visualization, Grad-CAM
+    ├── evaluate.py                 # evaluation + confusion matrix
+
 │
 ├── notebooks/
 │   ├── 01_data_exploration.ipynb     # look at your NIfTI files + CSV
@@ -21,6 +23,5 @@ alzheimer-multimodal/
 │   ├── 03_baseline_experiments.ipynb # CNN only, MLP only baselines
 │   └── 04_fusion_model.ipynb         # full model training + results
 │
-├── train.py                    # main training script (runs on Kaggle)
-├── evaluate.py                 # evaluation + confusion matrix
+├── train.py                    # main training script (runs on Kaggle)              # evaluation + confusion matrix
 └── requirements.txt
